@@ -16,3 +16,5 @@ library(tidyjson)
 library(jsonlite)
 
 ```
+
+## API

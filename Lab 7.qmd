@@ -9,6 +9,7 @@ embed-resources: true
 
 ```{r}
 #| label: libraries
+#| output: false
 
 library(tidyverse)
 library(httr)
@@ -18,3 +19,18 @@ library(jsonlite)
 ```
 
 ## API
+
+```{r}
+#| label: API pull
+
+res <- GET("https://g7vrd.co.uk/public-satellite-pass-rest-api")
+
+status_code(res)
+
+## this doesn't work
+passtime <- res$content %>% 
+  rawToChar() %>%
+  fromJSON()
+
+
+```

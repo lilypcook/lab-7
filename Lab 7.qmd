@@ -15,17 +15,21 @@ library(tidyverse)
 library(httr)
 library(tidyjson)
 library(jsonlite)
+library(leaflet)
 
 ```
 
-### Reading in capitals 
+### Reading in capitals
 
 ```{r}
 #| label: capitals
 
 capitals <- read_table("state_capitals_ll.txt", col_names = F)
 
+capital_names <- read_table("state_capitals_name.txt", col_names = F)
+
 colnames(capitals) <- c("state", "lat", "long") #add names
+colnames(capital_names) <- c("state", "capital")
 
 capitals <- capitals %>% 
   filter(state != "US") %>% # filter out random coords
@@ -45,9 +49,7 @@ links <- paste0("https://api.g7vrd.co.uk/v1/satellite-passes/25544/",
 ```{r}
 #| label: API pull
 
-
-
-
+# needs to be changed to get ALL links , this is just for Alabama
 res <- GET("https://api.g7vrd.co.uk/v1/satellite-passes/25544/32.36154/-86.27912.json")
 
 status_code(res)
@@ -59,3 +61,5 @@ passtime <- res$content %>%
 
 
 ```
+
+## Leaflet

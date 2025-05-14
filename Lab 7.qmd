@@ -18,10 +18,35 @@ library(jsonlite)
 
 ```
 
+### Reading in capitals 
+
+```{r}
+#| label: capitals
+
+capitals <- read_table("state_capitals_ll.txt", col_names = F)
+
+colnames(capitals) <- c("state", "lat", "long") #add names
+
+capitals <- capitals %>% 
+  filter(state != "US") %>% # filter out random coords
+  filter(state != "AK") # filter out alaska, doesn't pass by
+
+
+# list of all API links for states (lat and long inserted) - total of 51 
+links <- paste0("https://api.g7vrd.co.uk/v1/satellite-passes/25544/", 
+                capitals$lat, "/", 
+                capitals$long, ".json")
+
+
+```
+
 ## API
 
 ```{r}
 #| label: API pull
+
+
+
 
 res <- GET("https://api.g7vrd.co.uk/v1/satellite-passes/25544/32.36154/-86.27912.json")
 
@@ -30,6 +55,7 @@ status_code(res)
 passtime <- res$content %>% 
   rawToChar() %>%
   fromJSON()
+
 
 
 ```

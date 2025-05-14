@@ -23,11 +23,10 @@ library(jsonlite)
 ```{r}
 #| label: API pull
 
-res <- GET("https://g7vrd.co.uk/public-satellite-pass-rest-api")
+res <- GET("https://api.g7vrd.co.uk/v1/satellite-passes/25544/32.36154/-86.27912.json")
 
 status_code(res)
 
-## this doesn't work
 passtime <- res$content %>% 
   rawToChar() %>%
   fromJSON()

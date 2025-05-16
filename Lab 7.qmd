@@ -31,35 +31,102 @@ capital_names <- read_table("state_capitals_name.txt", col_names = F)
 colnames(capitals) <- c("state", "lat", "long") #add names
 colnames(capital_names) <- c("state", "capital")
 
+capital_names <- capital_names %>% mutate(capital =  str_remove_all(capital, '"')) # remove unnecessary quote
+
 capitals <- capitals %>% 
   filter(state != "US") %>% # filter out random coords
-  filter(state != "AK") # filter out alaska, doesn't pass by
-
-
-# list of all API links for states (lat and long inserted) - total of 51 
-links <- paste0("https://api.g7vrd.co.uk/v1/satellite-passes/25544/", 
-                capitals$lat, "/", 
-                capitals$long, ".json")
-
+  filter(state != "AK") %>% # filter out alaska, doesn't pass by
+  left_join(capital_names, by = "state") 
 
 ```
 
-## API
+## API functions
 
 ```{r}
-#| label: API pull
+#| label: api-functions
 
-# needs to be changed to get ALL links , this is just for Alabama
-res <- GET("https://api.g7vrd.co.uk/v1/satellite-passes/25544/32.36154/-86.27912.json")
+# function to get pass times for a single capital
 
-status_code(res)
+get_single_location_passes <- function(lat, long) {
+  api_base_url <- "https://api.g7vrd.co.uk/v1/satellite-passes/25544"
+  request_url <- paste0(api_base_url, "/", lat, "/", long, ".json")
+  
+  # get request
+  response <- GET(request_url)
+  
+  # check if the request successful, if success get content
+  if (status_code(response) == 200) {
+    content <- content(response, "text", encoding = "UTF-8")
+    pass_data <- fromJSON(content)
+    
+    # extract time 
+    if (length(pass_data$passes) > 0 && "tca" %in% names(pass_data$passes)) {
+      # get first 3 TCA timestamps
+      return(head(pass_data$passes$tca, 3))
+    } else {
+      return(NULL) # if no passes found or tca field missing
+    }
+  } else {
+    warning(paste("API request failed for lat:", lat, "long:", long, "with status:", status_code(response)))
+    return(NULL) # if request failed
+  }
+}
 
-passtime <- res$content %>% 
-  rawToChar() %>%
-  fromJSON()
+# function to get pass times for capitals and create df
+get_all_capitals_passes <- function(df) {
+  # empty list to store results
+  all_passes_list <- list()
+  
+  # loop through each capital
+  for (i in 1:nrow(df)) {
+    capital_info <- df[i, ]
+    
+    pass_times_vector <- get_single_location_passes(lat = capital_info$lat, long = capital_info$long)
+    
+    # make tibble for the capital pass times
+    # three time columns, NA if less than 3 
+    current_passes_df <- tibble(
+      state_abbr = capital_info$state,
+      capital_name = capital_info$capital,
+      lat = capital_info$lat,
+      long = capital_info$long,
+      time1 = if (length(pass_times_vector) >= 1) pass_times_vector[1] else NA_character_,
+      time2 = if (length(pass_times_vector) >= 2) pass_times_vector[2] else NA_character_,
+      time3 = if (length(pass_times_vector) >= 3) pass_times_vector[3] else NA_character_
+    )
+    
+    all_passes_list[[i]] <- current_passes_df
+    
+    # wait for 1 second between requests
+    Sys.sleep(1) 
+  }
+  
+  # combine all tibbles
+  final_df <- bind_rows(all_passes_list)
+  return(final_df)
+}
 
-
-
+get_all_capitals_passes(capitals)
 ```
 
-## Leaflet
+### Fetch and Process Pass Times Data
+
+```{r}
+#| label: fetch-process-passtimes
+
+# raw pass times for all capitals
+iss_pass_data_raw <- get_all_capitals_passes(capitals)
+
+# convert times and sort
+iss_pass_data_processed <- iss_pass_data_raw |>
+  # convert UTC to datetime - help from AI
+  mutate(
+    time1_dt = ymd_hms(time1, tz = "UTC"),
+    time2_dt = ymd_hms(time2, tz = "UTC"),
+    time3_dt = ymd_hms(time3, tz = "UTC")
+  ) |>
+  # arrange by first pass time
+  arrange(time1_dt) |>
+  # remove rows where time 1 is NA
+  filter(!is.na(time1_dt))
+```

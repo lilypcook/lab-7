@@ -109,13 +109,12 @@ get_all_capitals_passes <- function(df) {
   return(final_df)
 }
 
-get_all_capitals_passes(capitals)
 ```
 
-### Fetch and Process Pass Times Data
+### Pass Times Data
 
 ```{r}
-#| label: fetch-process-passtimes
+#| label: passtimes
 
 # raw pass times for all capitals
 iss_pass_data_raw <- get_all_capitals_passes(capitals)
@@ -142,11 +141,11 @@ iss_pass_data_processed <- iss_pass_data_raw |>
 #| label: define-icon
 
 satellite_icon <- makeIcon(
-  iconUrl = "https://cdn-icons-png.flaticon.com/128/2809/2809487.png",
+  iconUrl = "https://png.pngtree.com/png-clipart/20230111/original/pngtree-rocket-icon-vector-png-image_8902705.png",
   iconWidth = 25, 
   iconHeight = 25,
-  iconAnchorX = 12, # Half of width
-  iconAnchorY = 12  # Half of height
+  iconAnchorX = 12, 
+  iconAnchorY = 12  
 )
 ```
 
@@ -158,11 +157,10 @@ We construct the map layer by layer.
 #| label: create-leaflet-map
 #| fig-height: 7 
 
-# Ensure there's data to plot
+# ensure there is data for plot
 if (nrow(iss_pass_data_processed) > 0) {
   
-  # Format times for display (local time zone for readability)
-  # For popups and labels, format the datetime objects
+  # format times (local time zone for readability) for labels etc
   
   map_data <- iss_pass_data_processed |>
     mutate(
@@ -170,19 +168,19 @@ if (nrow(iss_pass_data_processed) > 0) {
       time2_display = format(time2_dt, "%Y-%m-%d %H:%M:%S UTC"),
       time3_display = format(time3_dt, "%Y-%m-%d %H:%M:%S UTC"),
       
-      # Handle NA times gracefully in display strings
+      # handle NA times in display strings
       time2_display = ifelse(is.na(time2_dt), "N/A", time2_display),
       time3_display = ifelse(is.na(time3_dt), "N/A", time3_display)
     )
 
-  # Create hover labels
+  # hover labels
   hover_labels <- paste0(
     "<strong>Capital:</strong> ", map_data$capital_name, "<br>",
     "<strong>State:</strong> ", map_data$state_abbr, "<br>",
     "<strong>Soonest Pass:</strong> ", map_data$time1_display
   ) |> lapply(htmltools::HTML) # lapply with HTML for proper rendering
 
-  # Create click popups
+  # click popups
   click_popups <- paste0(
     "<strong>Capital:</strong> ", map_data$capital_name, " (", map_data$state_abbr, ")<br><br>",
     "<strong>Predicted Pass Times (UTC):</strong><br>",
@@ -191,13 +189,13 @@ if (nrow(iss_pass_data_processed) > 0) {
     "3. ", map_data$time3_display
   ) |> lapply(htmltools::HTML)
 
-  # Create the map
+  # create the map
   iss_map <- leaflet(data = map_data) |>
-    addTiles(group = "OSM (Default)") |> # Add default OpenStreetMap map tiles
+    addTiles(group = "OSM (Default)") |> # add default OpenStreetMap map tiles
     addProviderTiles(providers$CartoDB.Positron, group = "CartoDB Positron") |>
     addProviderTiles(providers$Esri.WorldImagery, group = "Esri World Imagery") |>
     
-    # Add markers for each state capital
+    # markers for each state capital
     addMarkers(
       lng = ~long, 
       lat = ~lat,
@@ -207,26 +205,25 @@ if (nrow(iss_pass_data_processed) > 0) {
       group = "State Capitals"
     ) |>
     
-    # Add polylines connecting the capitals in order of their first pass time
-    # This visualizes the "route" based on pass order
+    #  polylines connecting capitals in order of first pass time
     addPolylines(
       lng = ~long,
       lat = ~lat,
-      color = "#E6007E", # A distinct color for the polyline
+      color = "#E6007E", 
       weight = 3,
       opacity = 0.8,
-      dashArray = "5, 5", # Dashed line
+      dashArray = "5, 5", # dashed line
       group = "ISS Pass Order Path"
     ) |>
     
-    # Add layer controls to toggle layers
+    #  layer controls to toggle layers
     addLayersControl(
       baseGroups = c("OSM (Default)", "CartoDB Positron", "Esri World Imagery"),
       overlayGroups = c("State Capitals", "ISS Pass Order Path"),
       options = layersControlOptions(collapsed = FALSE)
     ) |>
     
-    # Add a legend for the polyline
+    # legend for the polyline
     addLegend(
         position = "bottomright",
         colors = "#E6007E",
@@ -234,7 +231,7 @@ if (nrow(iss_pass_data_processed) > 0) {
         title = "Map Features"
     )
 
-  # Display the map
+  # display the map
   iss_map
 
 } else {

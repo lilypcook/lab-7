@@ -3,6 +3,9 @@ title: "Lab 7"
 format: html
 editor: visual
 embed-resources: true
+execute: 
+  warning: false
+  message: false
 ---
 
 ### Libraries
@@ -129,4 +132,113 @@ iss_pass_data_processed <- iss_pass_data_raw |>
   arrange(time1_dt) |>
   # remove rows where time 1 is NA
   filter(!is.na(time1_dt))
+```
+
+## 2-5. Mapping the Data and Drawing the ISS Route
+
+### Define Custom Icon
+
+```{r}
+#| label: define-icon
+
+satellite_icon <- makeIcon(
+  iconUrl = "https://cdn-icons-png.flaticon.com/128/2809/2809487.png",
+  iconWidth = 25, 
+  iconHeight = 25,
+  iconAnchorX = 12, # Half of width
+  iconAnchorY = 12  # Half of height
+)
+```
+
+### Create the Leaflet Map
+
+We construct the map layer by layer.
+
+```{r}
+#| label: create-leaflet-map
+#| fig-height: 7 
+
+# Ensure there's data to plot
+if (nrow(iss_pass_data_processed) > 0) {
+  
+  # Format times for display (local time zone for readability)
+  # For popups and labels, format the datetime objects
+  
+  map_data <- iss_pass_data_processed |>
+    mutate(
+      time1_display = format(time1_dt, "%Y-%m-%d %H:%M:%S UTC"),
+      time2_display = format(time2_dt, "%Y-%m-%d %H:%M:%S UTC"),
+      time3_display = format(time3_dt, "%Y-%m-%d %H:%M:%S UTC"),
+      
+      # Handle NA times gracefully in display strings
+      time2_display = ifelse(is.na(time2_dt), "N/A", time2_display),
+      time3_display = ifelse(is.na(time3_dt), "N/A", time3_display)
+    )
+
+  # Create hover labels
+  hover_labels <- paste0(
+    "<strong>Capital:</strong> ", map_data$capital_name, "<br>",
+    "<strong>State:</strong> ", map_data$state_abbr, "<br>",
+    "<strong>Soonest Pass:</strong> ", map_data$time1_display
+  ) |> lapply(htmltools::HTML) # lapply with HTML for proper rendering
+
+  # Create click popups
+  click_popups <- paste0(
+    "<strong>Capital:</strong> ", map_data$capital_name, " (", map_data$state_abbr, ")<br><br>",
+    "<strong>Predicted Pass Times (UTC):</strong><br>",
+    "1. ", map_data$time1_display, "<br>",
+    "2. ", map_data$time2_display, "<br>",
+    "3. ", map_data$time3_display
+  ) |> lapply(htmltools::HTML)
+
+  # Create the map
+  iss_map <- leaflet(data = map_data) |>
+    addTiles(group = "OSM (Default)") |> # Add default OpenStreetMap map tiles
+    addProviderTiles(providers$CartoDB.Positron, group = "CartoDB Positron") |>
+    addProviderTiles(providers$Esri.WorldImagery, group = "Esri World Imagery") |>
+    
+    # Add markers for each state capital
+    addMarkers(
+      lng = ~long, 
+      lat = ~lat,
+      icon = satellite_icon,
+      label = hover_labels,
+      popup = click_popups,
+      group = "State Capitals"
+    ) |>
+    
+    # Add polylines connecting the capitals in order of their first pass time
+    # This visualizes the "route" based on pass order
+    addPolylines(
+      lng = ~long,
+      lat = ~lat,
+      color = "#E6007E", # A distinct color for the polyline
+      weight = 3,
+      opacity = 0.8,
+      dashArray = "5, 5", # Dashed line
+      group = "ISS Pass Order Path"
+    ) |>
+    
+    # Add layer controls to toggle layers
+    addLayersControl(
+      baseGroups = c("OSM (Default)", "CartoDB Positron", "Esri World Imagery"),
+      overlayGroups = c("State Capitals", "ISS Pass Order Path"),
+      options = layersControlOptions(collapsed = FALSE)
+    ) |>
+    
+    # Add a legend for the polyline
+    addLegend(
+        position = "bottomright",
+        colors = "#E6007E",
+        labels = "ISS Pass Order Path",
+        title = "Map Features"
+    )
+
+  # Display the map
+  iss_map
+
+} else {
+  print("No ISS pass data available to map. Check API calls or data processing steps.")
+}
+
 ```
